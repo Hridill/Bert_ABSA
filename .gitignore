@@ -1,0 +1,74 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# Model files (large binary files)
+*.bin
+*.pth
+*.pt
+*.h5
+*.ckpt
+model.bin
+model_versions/
+Input/bert_base_uncased/
+
+# Logs
+logs/
+*.log
+src/logs/
+
+# Data files (uncomment if you don't want to track large datasets)
+# *.csv
+# Input/*.csv
+
+# Visualizations (uncomment if generated and shouldn't be tracked)
+# visualizations/
+# *.png
+# *.jpg
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environment variables
+.env
+.env.local
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Large datasets (adjust as needed)
+# Input/healthcare*.csv
+# Input/imdb.csv

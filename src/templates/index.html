@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentiment Analysis</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #f8f9fa;
+            --text-color: #212529;
+            --card-bg: #ffffff;
+            --header-bg: #007bff;
+            --header-text: #ffffff;
+        }
+
+        [data-theme="dark"] {
+            --bg-color: #212529;
+            --text-color: #f8f9fa;
+            --card-bg: #343a40;
+            --header-bg: #0d6efd;
+            --header-text: #ffffff;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .container {
+            max-width: 800px;
+            margin-top: 50px;
+        }
+
+        .card {
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            background-color: var(--card-bg);
+            transition: background-color 0.3s;
+        }
+
+        .card-header {
+            background-color: var(--header-bg);
+            color: var(--header-text);
+            border-radius: 15px 15px 0 0 !important;
+        }
+
+        .btn-primary {
+            background-color: var(--header-bg);
+            border: none;
+            padding: 10px 20px;
+        }
+
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+
+        .result-card {
+            margin-top: 20px;
+            display: none;
+        }
+
+        .progress {
+            height: 25px;
+            border-radius: 12px;
+        }
+
+        .positive-bar {
+            background-color: #28a745;
+        }
+
+        .negative-bar {
+            background-color: #dc3545;
+        }
+
+        .neutral-bar {
+            background-color: #6c757d;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .example-text {
+            cursor: pointer;
+            padding: 5px 10px;
+            margin: 5px;
+            border-radius: 5px;
+            background-color: #e9ecef;
+            display: inline-block;
+        }
+
+        .example-text:hover {
+            background-color: #dee2e6;
+        }
+
+        .char-counter {
+            text-align: right;
+            color: #6c757d;
+            font-size: 0.875rem;
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .alert {
+            margin-top: 10px;
+            border-radius: 8px;
+            font-size: 1.1em;
+        }
+
+        .alert[data-sentiment="positive"] {
+            background-color: #d4edda;
+            color: #155724;
+            border-color: #c3e6cb;
+        }
+
+        .alert[data-sentiment="negative"] {
+            background-color: #f8d7da;
+            color: #721c24;
+            border-color: #f5c6cb;
+        }
+
+        .alert[data-sentiment="neutral"] {
+            background-color: #e2e3e5;
+            color: #383d41;
+            border-color: #d6d8db;
+        }
+    </style>
+</head>
+<body>
+    <button class="btn btn-outline-primary theme-toggle" onclick="toggleTheme()">
+        <i class="fas fa-moon"></i>
+    </button>
+
+    <div class="container">
+        <div class="card mb-4">
+            <div class="card-header text-center">
+                <h2>Sentiment Analysis</h2>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Analysis Mode:</label>
+                    <div class="btn-group w-100" role="group">
+                        <input type="radio" class="btn-check" name="analysisMode" id="singleMode" checked>
+                        <label class="btn btn-outline-primary" for="singleMode">Single Analysis</label>
+                        <input type="radio" class="btn-check" name="analysisMode" id="compareMode">
+                        <label class="btn btn-outline-primary" for="compareMode">Compare Feedback</label>
+                    </div>
+                </div>
+
+                <div id="singleAnalysis">
+                    <div class="mb-3">
+                        <label for="sentence" class="form-label">Enter your text:</label>
+                        <textarea class="form-control" id="sentence" rows="4" placeholder="Type your text here..." oninput="updateCharCount()"></textarea>
+                        <div class="char-counter">
+                            <span id="charCount">0</span>/500 characters
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Select Healthcare Aspect:</label>
+                        <select class="form-select" id="aspect">
+                            <option value="auto">Auto (detect from text)</option>
+                            <option value="overall">Overall Experience</option>
+                            <option value="doctor">Doctor's Communication</option>
+                            <option value="wait">Wait Times</option>
+                            <option value="facility">Facility & Cleanliness</option>
+                            <option value="treatment">Treatment Effectiveness</option>
+                            <option value="staff">Staff Behavior</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Try these examples:</label>
+                        <div>
+                            <span class="example-text" onclick="useExample('The doctor was extremely rude and dismissive. They didn\'t listen to my concerns and rushed through the appointment.', 'doctor')">Negative Doctor Experience</span>
+                            <span class="example-text" onclick="useExample('The doctor was very professional and explained everything clearly. The treatment was effective and I feel much better now.', 'doctor')">Positive Doctor Experience</span>
+                            <span class="example-text" onclick="useExample('The wait time was extremely long and the staff seemed disorganized. The doctor rushed through the appointment.', 'wait')">Negative Wait Time</span>
+                            <span class="example-text" onclick="useExample('The waiting room was clean and comfortable. The staff kept us informed about delays.', 'facility')">Positive Facility Experience</span>
+                            <span class="example-text" onclick="useExample('The treatment was completely ineffective and made my condition worse. I regret coming here.', 'treatment')">Negative Treatment</span>
+                            <span class="example-text" onclick="useExample('The staff was incredibly helpful and attentive. They made me feel comfortable throughout my stay.', 'staff')">Positive Staff Experience</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="compareAnalysis" style="display: none;">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">First Feedback:</label>
+                                <textarea class="form-control" id="sentence1" rows="4" placeholder="Enter first feedback..." oninput="updateCharCount1()"></textarea>
+                                <div class="char-counter">
+                                    <span id="charCount1">0</span>/500 characters
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Date/Context:</label>
+                                <input type="text" class="form-control" id="context1" placeholder="e.g., First Visit, January 2024">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Second Feedback:</label>
+                                <textarea class="form-control" id="sentence2" rows="4" placeholder="Enter second feedback..." oninput="updateCharCount2()"></textarea>
+                                <div class="char-counter">
+                                    <span id="charCount2">0</span>/500 characters
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Date/Context:</label>
+                                <input type="text" class="form-control" id="context2" placeholder="e.g., Follow-up Visit, February 2024">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Select Healthcare Aspect:</label>
+                        <select class="form-select" id="compareAspect">
+                            <option value="overall">Overall Experience</option>
+                            <option value="doctor">Doctor's Communication</option>
+                            <option value="wait">Wait Times</option>
+                            <option value="facility">Facility & Cleanliness</option>
+                            <option value="treatment">Treatment Effectiveness</option>
+                            <option value="staff">Staff Behavior</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Try these comparison examples:</label>
+                        <div>
+                            <span class="example-text" onclick="useComparisonExample(
+                                'First visit: The doctor was rushed and didn\'t explain the treatment well.',
+                                'Second visit: The doctor took time to explain everything clearly and answered all my questions.',
+                                'First Visit',
+                                'Follow-up Visit'
+                            )">Before/After Doctor Communication</span>
+                            <span class="example-text" onclick="useComparisonExample(
+                                'Initial wait time was 2 hours, very frustrating.',
+                                'New appointment system reduced wait time to 15 minutes.',
+                                'Old System',
+                                'New System'
+                            )">Wait Time Improvement</span>
+                            <span class="example-text" onclick="useComparisonExample(
+                                'On my first visit the waiting area was crowded and the floor was dirty.',
+                                'On my next visit the facility was very clean, organized, and comfortable.',
+                                'First Visit',
+                                'Second Visit'
+                            )">Facility Cleanliness Improvement</span>
+                            <span class="example-text" onclick="useComparisonExample(
+                                'The initial treatment did not reduce my pain and I felt no improvement.',
+                                'After the new treatment plan my pain decreased significantly and I can move much more easily now.',
+                                'Initial Treatment',
+                                'Revised Treatment'
+                            )">Treatment Effectiveness Improvement</span>
+                            <span class="example-text" onclick="useComparisonExample(
+                                'During my first stay the nurses were slow to respond and seemed uninterested in my questions.',
+                                'On the next visit the staff checked on me frequently and were kind and supportive.',
+                                'First Stay',
+                                'Second Stay'
+                            )">Staff Behavior Improvement</span>
+                            <span class="example-text" onclick="useComparisonExample(
+                                'The doctor was very patient and explained everything clearly during my first visit.',
+                                'On my follow-up visit the doctor was rushed, dismissive, and didn\'t answer my questions.',
+                                'First Visit',
+                                'Follow-up Visit'
+                            )">Doctor Communication Deterioration</span>
+                            <span class="example-text" onclick="useComparisonExample(
+                                'The wait time was only 15 minutes and the process was smooth.',
+                                'Now the wait time has increased to over 2 hours and the scheduling is chaotic.',
+                                'Earlier Visit',
+                                'Recent Visit'
+                            )">Wait Time Deterioration</span>
+                            <span class="example-text" onclick="useComparisonExample(
+                                'The facility was clean, modern, and well-maintained on my first visit.',
+                                'On my recent visit the rooms were dirty, equipment was broken, and it felt neglected.',
+                                'First Visit',
+                                'Recent Visit'
+                            )">Facility Condition Decline</span>
+                            <span class="example-text" onclick="useComparisonExample(
+                                'The treatment worked perfectly and I felt much better after a few weeks.',
+                                'The follow-up treatment was ineffective and my symptoms have returned worse than before.',
+                                'Initial Treatment',
+                                'Follow-up Treatment'
+                            )">Treatment Effectiveness Decline</span>
+                            <span class="example-text" onclick="useComparisonExample(
+                                'The staff was friendly, attentive, and made me feel welcome.',
+                                'The staff now seems overworked, unresponsive, and barely acknowledges patients.',
+                                'Earlier Visit',
+                                'Recent Visit'
+                            )">Staff Service Decline</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary flex-grow-1" onclick="analyzeSentiment()">Analyze Sentiment</button>
+                    <button class="btn btn-secondary" onclick="clearForm()">Clear</button>
+                </div>
+                
+                <div class="loading" id="loading">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Analyzing sentiment...</p>
+                </div>
+
+                <div class="result-card card" id="resultCard">
+                    <div class="card-body">
+                        <h5 class="card-title">Analysis Results</h5>
+                        <div id="singleResult">
+                            <div class="mb-3">
+                                <label>Healthcare Aspect: <span id="selectedAspect" class="fw-bold">Overall Experience</span></label>
+                            </div>
+                            <div class="mb-3">
+                                <label>Predicted Sentiment:</label>
+                                <div class="alert" id="sentimentResult" role="alert">
+                                    <span id="predictedSentiment" class="fw-bold"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="compareResult" style="display: none;">
+                            <div class="mb-3">
+                                <label>Healthcare Aspect: <span id="compareSelectedAspect" class="fw-bold">Overall Experience</span></label>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6 id="context1Label" class="text-center mb-3">First Feedback</h6>
+                                    <div class="mb-3">
+                                        <label>Predicted Sentiment:</label>
+                                        <div class="alert" id="sentimentResult1" role="alert">
+                                            <span id="predictedSentiment1" class="fw-bold"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 id="context2Label" class="text-center mb-3">Second Feedback</h6>
+                                    <div class="mb-3">
+                                        <label>Predicted Sentiment:</label>
+                                        <div class="alert" id="sentimentResult2" role="alert">
+                                            <span id="predictedSentiment2" class="fw-bold"></span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <div class="alert alert-info" id="comparisonInsight">
+                                    <!-- Comparison insight will be inserted here -->
+                                </div>
+                            </div>
+                        </div>
+                        <div class="text-muted">
+                            <small>Processing time: <span id="timeTaken">0</span> seconds</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function updateCharCount() {
+            const text = document.getElementById('sentence').value;
+            const count = text.length;
+            document.getElementById('charCount').textContent = count;
+            
+            // Disable textarea if over 500 characters
+            if (count > 500) {
+                document.getElementById('sentence').value = text.substring(0, 500);
+                document.getElementById('charCount').textContent = '500';
+            }
+        }
+
+        function updateCharCount1() {
+            const text = document.getElementById('sentence1').value;
+            const count = text.length;
+            document.getElementById('charCount1').textContent = count;
+            
+            if (count > 500) {
+                document.getElementById('sentence1').value = text.substring(0, 500);
+                document.getElementById('charCount1').textContent = '500';
+            }
+        }
+
+        function updateCharCount2() {
+            const text = document.getElementById('sentence2').value;
+            const count = text.length;
+            document.getElementById('charCount2').textContent = count;
+            
+            if (count > 500) {
+                document.getElementById('sentence2').value = text.substring(0, 500);
+                document.getElementById('charCount2').textContent = '500';
+            }
+        }
+
+        function useExample(text, aspect) {
+            document.getElementById('sentence').value = text;
+            document.getElementById('aspect').value = aspect;
+            updateCharCount();
+        }
+
+        function useComparisonExample(text1, text2, context1, context2) {
+            document.getElementById('sentence1').value = text1;
+            document.getElementById('sentence2').value = text2;
+            document.getElementById('context1').value = context1;
+            document.getElementById('context2').value = context2;
+            updateCharCount1();
+            updateCharCount2();
+        }
+
+        function clearForm() {
+            if (document.getElementById('singleMode').checked) {
+                document.getElementById('sentence').value = '';
+                document.getElementById('aspect').value = 'overall';
+                updateCharCount();
+            } else {
+                document.getElementById('sentence1').value = '';
+                document.getElementById('sentence2').value = '';
+                document.getElementById('context1').value = '';
+                document.getElementById('context2').value = '';
+                document.getElementById('compareAspect').value = 'overall';
+                updateCharCount1();
+                updateCharCount2();
+            }
+            document.getElementById('resultCard').style.display = 'none';
+        }
+
+        function toggleTheme() {
+            const body = document.body;
+            const icon = document.querySelector('.theme-toggle i');
+            
+            if (body.getAttribute('data-theme') === 'dark') {
+                body.removeAttribute('data-theme');
+                icon.classList.remove('fa-sun');
+                icon.classList.add('fa-moon');
+            } else {
+                body.setAttribute('data-theme', 'dark');
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+            }
+        }
+
+        // Add event listeners for analysis mode toggle
+        document.getElementById('singleMode').addEventListener('change', function() {
+            document.getElementById('singleAnalysis').style.display = this.checked ? 'block' : 'none';
+            document.getElementById('compareAnalysis').style.display = this.checked ? 'none' : 'block';
+            document.getElementById('singleResult').style.display = this.checked ? 'block' : 'none';
+            document.getElementById('compareResult').style.display = this.checked ? 'none' : 'block';
+            clearForm();
+        });
+
+        document.getElementById('compareMode').addEventListener('change', function() {
+            document.getElementById('singleAnalysis').style.display = this.checked ? 'none' : 'block';
+            document.getElementById('compareAnalysis').style.display = this.checked ? 'block' : 'none';
+            document.getElementById('singleResult').style.display = this.checked ? 'none' : 'block';
+            document.getElementById('compareResult').style.display = this.checked ? 'block' : 'none';
+            clearForm();
+        });
+
+        function analyzeSentiment() {
+            const isCompareMode = document.getElementById('compareMode').checked;
+            
+            if (isCompareMode) {
+                const sentence1 = document.getElementById('sentence1').value;
+                const sentence2 = document.getElementById('sentence2').value;
+                const context1 = document.getElementById('context1').value;
+                const context2 = document.getElementById('context2').value;
+                const aspect = document.getElementById('compareAspect').value;
+                
+                if (!sentence1.trim() || !sentence2.trim()) {
+                    alert('Please enter both feedback texts to compare');
+                    return;
+                }
+
+                // Show loading spinner
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('resultCard').style.display = 'none';
+
+                // Update selected aspect display
+                const aspectNames = {
+                    'overall': 'Overall Experience',
+                    'doctor': 'Doctor\'s Communication',
+                    'wait': 'Wait Times',
+                    'facility': 'Facility & Cleanliness',
+                    'treatment': 'Treatment Effectiveness',
+                    'staff': 'Staff Behavior'
+                };
+                document.getElementById('compareSelectedAspect').textContent = aspectNames[aspect];
+                document.getElementById('context1Label').textContent = context1 || 'First Feedback';
+                document.getElementById('context2Label').textContent = context2 || 'Second Feedback';
+
+                // Analyze both texts
+                Promise.all([
+                    fetch(`/predict?sentence=${encodeURIComponent(sentence1)}&aspect=${encodeURIComponent(aspect)}`),
+                    fetch(`/predict?sentence=${encodeURIComponent(sentence2)}&aspect=${encodeURIComponent(aspect)}`)
+                ])
+                .then(responses => Promise.all(responses.map(r => r.json())))
+                .then(([data1, data2]) => {
+                    const result1 = data1.response;
+                    const result2 = data2.response;
+                    
+                    // Update first feedback results
+                    const sentiment1 = result1.predicted_sentiment;
+                    document.getElementById('predictedSentiment1').textContent = sentiment1;
+                    document.getElementById('sentimentResult1').setAttribute('data-sentiment', sentiment1);
+                    
+                    // Update second feedback results
+                    const sentiment2 = result2.predicted_sentiment;
+                    document.getElementById('predictedSentiment2').textContent = sentiment2;
+                    document.getElementById('sentimentResult2').setAttribute('data-sentiment', sentiment2);
+                    
+                    // Generate comparison insight
+                    let insight = '';
+                    
+                    if (sentiment1 === sentiment2) {
+                        insight = `Both feedbacks show ${sentiment1} sentiment. `;
+                    } else {
+                        insight = `The sentiment has changed from ${sentiment1} to ${sentiment2}. `;
+                    }
+                    
+                    document.getElementById('comparisonInsight').textContent = insight;
+                    document.getElementById('resultCard').style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while analyzing the texts. Please try again.');
+                })
+                .finally(() => {
+                    document.getElementById('loading').style.display = 'none';
+                });
+            } else {
+                // Existing single analysis code
+                const sentence = document.getElementById('sentence').value;
+                const aspect = document.getElementById('aspect').value;
+                
+                if (!sentence.trim()) {
+                    alert('Please enter some text to analyze');
+                    return;
+                }
+
+                // Show loading spinner
+                document.getElementById('loading').style.display = 'block';
+                document.getElementById('resultCard').style.display = 'none';
+
+                // Update selected aspect display
+                const aspectNames = {
+                    'overall': 'Overall Experience',
+                    'doctor': 'Doctor\'s Communication',
+                    'wait': 'Wait Times',
+                    'facility': 'Facility & Cleanliness',
+                    'treatment': 'Treatment Effectiveness',
+                    'staff': 'Staff Behavior'
+                };
+                // If auto, we will set display after response using returned aspect
+                document.getElementById('selectedAspect').textContent = aspect === 'auto' ? 'Auto (detect from text)' : aspectNames[aspect];
+
+                fetch(`/predict?sentence=${encodeURIComponent(sentence)}&aspect=${encodeURIComponent(aspect)}`)
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        const result = data.response;
+                        const sentiment = result.predicted_sentiment;
+                        const usedAspect = result.aspect;
+                        
+                        document.getElementById('predictedSentiment').textContent = sentiment;
+                        document.getElementById('sentimentResult').setAttribute('data-sentiment', sentiment);
+                        document.getElementById('timeTaken').textContent = result.time_taken;
+                        // Update selected aspect display to the detected one when auto is used
+                        if (aspect === 'auto') {
+                            const aspectNamesLocal = {
+                                'overall': 'Overall Experience',
+                                'doctor': 'Doctor\'s Communication',
+                                'wait': 'Wait Times',
+                                'facility': 'Facility & Cleanliness',
+                                'treatment': 'Treatment Effectiveness',
+                                'staff': 'Staff Behavior'
+                            };
+                            const label = aspectNamesLocal[usedAspect] || 'Overall Experience';
+                            document.getElementById('selectedAspect').textContent = label + ' (detected)';
+                        }
+                        
+                        document.getElementById('resultCard').style.display = 'block';
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred while analyzing the text. Please try again.');
+                    })
+                    .finally(() => {
+                        document.getElementById('loading').style.display = 'none';
+                    });
+            }
+        }
+    </script>
+</body>
+</html> 

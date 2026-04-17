@@ -1,5 +1,3 @@
-# Bert_ABSA
-
 # BERT Sentiment Analysis Project
 
 This project implements a sentiment analysis system using BERT (Bidirectional Encoder Representations from Transformers) for text classification. The system can classify text as positive or negative sentiment and provides a web interface for real-time predictions.
